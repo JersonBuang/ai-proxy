@@ -1,11 +1,28 @@
 export default async function handler(req, res) {
   try {
-    const { recipe } = req.body;
+    // Only allow POST
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    // Parse body safely
+    let body = req.body;
+
+    if (!body) {
+      return res.status(400).json({ error: "Missing request body" });
+    }
+
+    if (typeof body === "string") {
+      body = JSON.parse(body);
+    }
+
+    const { recipe } = body;
 
     if (!recipe) {
       return res.status(400).json({ error: "Recipe is required" });
     }
 
+    // Call OpenAI API
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -31,7 +48,17 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    return res.status(200).json(data);
+    // Extract AI content safely
+    const content = data.choices?.[0]?.message?.content || "[]";
+
+    let ingredients;
+    try {
+      ingredients = JSON.parse(content);
+    } catch {
+      ingredients = [];
+    }
+
+    return res.status(200).json({ ingredients });
 
   } catch (error) {
     return res.status(500).json({
